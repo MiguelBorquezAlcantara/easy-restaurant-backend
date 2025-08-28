@@ -1,0 +1,414 @@
+// ==============================================
+// SISTEMA DE GESTIÓN DE RESTAURANTES MULTI-TENANT
+// Prisma Schema generado desde PostgreSQL
+// ==============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 1. TIPOS DE RESTAURANTE
+model restaurant_types {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @default(now())
+
+  // Relaciones
+  restaurants restaurants[]
+}
+
+// 2. RESTAURANTES
+model restaurants {
+  id          String    @id @default(uuid())
+  code        String    @unique
+  name        String
+  legal_name  String?
+  tax_id      String?
+  restaurant_type_id String?
+  email       String?
+  phone       String?
+  logo_url    String?
+  is_active   Boolean   @default(true)
+  subscription_ends_at DateTime?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @default(now())
+  deleted_at  DateTime?
+
+  // Relaciones
+  products    products[]
+  branches    branches[]
+  customers   customers[]
+  users       users[]
+  product_categories product_categories[]
+  restaurant_type restaurant_types? @relation(fields: [restaurant_type_id], references: [id])
+}
+
+// 3. SUCURSALES
+model branches {
+  id            String    @id @default(uuid())
+  restaurant_id String
+  code          String
+  name          String
+  address       String
+  city          String?
+  state         String?
+  postal_code   String?
+  country       String?   @default("México")
+  phone         String?
+  email         String?
+  is_main       Boolean   @default(false)
+  is_active     Boolean   @default(true)
+  opening_time  String?
+  closing_time  String?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @default(now())
+  deleted_at    DateTime?
+
+  @@unique([restaurant_id, code])
+
+  // Relaciones
+  restaurant       restaurants @relation(fields: [restaurant_id], references: [id])
+  tables           tables[]
+  orders           orders[]
+  branch_settings  branch_settings?
+  user_branches    user_branches[]
+  inventory        inventory[]
+  branch_product_overrides branch_product_overrides[]
+}
+
+// 4. ROLES
+model roles {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  display_name String
+  description String?
+  is_system   Boolean   @default(false)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @default(now())
+
+  // Relaciones
+  users           users[]
+  role_permissions role_permissions[]
+}
+
+// 5. PERMISOS
+model permissions {
+  id          String    @id @default(uuid())
+  module      String
+  action      String
+  description String?
+  created_at  DateTime  @default(now())
+
+  @@unique([module, action])
+
+  // Relaciones
+  role_permissions role_permissions[]
+}
+
+// 6. ROLES-PERMISOS
+model role_permissions {
+  role_id       String
+  permission_id String
+  created_at    DateTime @default(now())
+
+  @@id([role_id, permission_id])
+
+  // Relaciones
+  role       roles      @relation(fields: [role_id], references: [id])
+  permission permissions @relation(fields: [permission_id], references: [id])
+}
+
+// 7. USUARIOS
+model users {
+  id           String   @id @default(uuid())
+  restaurant_id String
+  role_id      String
+  email        String   @unique
+  password_hash String
+  first_name   String
+  last_name    String
+  phone        String?
+  employee_code String?
+  pin_code     String?
+  is_active    Boolean  @default(true)
+  last_login_at DateTime?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @default(now())
+  deleted_at   DateTime?
+
+  // Relaciones
+  restaurant    restaurants @relation(fields: [restaurant_id], references: [id])
+  role          roles       @relation(fields: [role_id], references: [id])
+  orders_waiter orders[]    @relation("WaiterOrders")
+  orders_cashier orders[]   @relation("CashierOrders")
+  processed_payments payments[]
+  user_branches  user_branches[]
+  order_items_prepared order_items[] @relation("PreparedBy")
+}
+
+// 8. USUARIOS-SUCURSALES
+model user_branches {
+  user_id   String
+  branch_id String
+  is_default Boolean @default(false)
+  created_at DateTime @default(now())
+
+  @@id([user_id, branch_id])
+
+  // Relaciones
+  user   users   @relation(fields: [user_id], references: [id])
+  branch branches @relation(fields: [branch_id], references: [id])
+}
+
+// 9. CATEGORÍAS DE PRODUCTOS
+model product_categories {
+  id           String    @id @default(uuid())
+  restaurant_id String
+  name         String
+  description  String?
+  display_order Int      @default(0)
+  icon         String?
+  color        String?
+  is_active    Boolean   @default(true)
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @default(now())
+  deleted_at   DateTime?
+
+  // Relaciones
+  restaurant restaurants @relation(fields: [restaurant_id], references: [id])
+  products   products[]
+}
+
+// 10. PRODUCTOS
+model products {
+  id           String    @id @default(uuid())
+  restaurant_id String
+  category_id   String
+  sku           String
+  name          String
+  description   String?
+  base_price    Decimal
+  base_cost     Decimal?
+  tax_rate      Decimal  @default(16.00)
+  preparation_time Int?
+  is_available  Boolean  @default(true)
+  is_featured   Boolean  @default(false)
+  image_url     String?
+  created_at    DateTime @default(now())
+  updated_at    DateTime @default(now())
+  deleted_at    DateTime?
+
+  // Relaciones
+  restaurant    restaurants @relation(fields: [restaurant_id], references: [id])
+  category      product_categories @relation(fields: [category_id], references: [id])
+  inventory     inventory[]
+  branch_overrides branch_product_overrides[]
+  order_items   order_items[]
+}
+
+// 11. EXCEPCIONES DE PRODUCTOS POR SUCURSAL
+model branch_product_overrides {
+  id         String @id @default(uuid())
+  branch_id  String
+  product_id String
+  custom_name String?
+  custom_price Decimal?
+  custom_cost  Decimal?
+  is_available Boolean?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now())
+
+  @@unique([branch_id, product_id])
+
+  // Relaciones
+  branch  branches @relation(fields: [branch_id], references: [id])
+  product products @relation(fields: [product_id], references: [id])
+}
+
+// 12. INVENTARIO
+model inventory {
+  id         String @id @default(uuid())
+  branch_id  String
+  product_id String
+  current_stock Decimal @default(0)
+  min_stock    Decimal @default(0)
+  max_stock    Decimal?
+  unit_measure String @default("units")
+  last_restock_at DateTime?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now())
+
+  @@unique([branch_id, product_id])
+
+  // Relaciones
+  branch  branches @relation(fields: [branch_id], references: [id])
+  product products @relation(fields: [product_id], references: [id])
+}
+
+// 13. MESAS
+model tables {
+  id        String @id @default(uuid())
+  branch_id String
+  number    String
+  name      String?
+  capacity  Int     @default(4)
+  zone      String?
+  status    String  @default("available")
+  qr_code   String?
+  is_active Boolean @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@unique([branch_id, number])
+
+  // Relaciones
+  branch branches @relation(fields: [branch_id], references: [id])
+  orders  orders[]
+}
+
+// 14. CLIENTES
+model customers {
+  id          String @id @default(uuid())
+  restaurant_id String
+  email       String?
+  phone       String?
+  first_name  String?
+  last_name   String?
+  tax_id      String?
+  address     String?
+  birth_date  DateTime?
+  notes       String?
+  is_active   Boolean @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime? @default(now())
+
+  @@unique([restaurant_id, email])
+
+  // Relaciones
+  restaurant restaurants @relation(fields: [restaurant_id], references: [id])
+  orders orders[]
+}
+
+// 15. ÓRDENES
+model orders {
+  id             String @id @default(uuid())
+  branch_id      String
+  order_number   String
+  table_id       String?
+  customer_id    String?
+  waiter_id      String?
+  cashier_id     String?
+  order_type     String
+  status         String  @default("pending")
+  subtotal       Decimal @default(0)
+  tax_amount     Decimal @default(0)
+  discount_amount Decimal @default(0)
+  tip_amount     Decimal @default(0)
+  total_amount   Decimal @default(0)
+  notes          String?
+  kitchen_notes  String?
+  customer_count Int     @default(1)
+  preparation_time Int?
+  created_at     DateTime @default(now())
+  confirmed_at   DateTime?
+  ready_at       DateTime?
+  delivered_at   DateTime?
+  completed_at   DateTime?
+  cancelled_at   DateTime?
+  cancelled_reason String?
+  updated_at     DateTime @default(now())
+
+  // Relaciones
+  branch    branches @relation(fields: [branch_id], references: [id])
+  table     tables?  @relation(fields: [table_id], references: [id])
+  customer  customers? @relation(fields: [customer_id], references: [id])
+  waiter    users?   @relation("WaiterOrders", fields: [waiter_id], references: [id])
+  cashier   users?   @relation("CashierOrders", fields: [cashier_id], references: [id])
+  order_items order_items[]
+  payments   payments[]
+}
+
+// 16. DETALLE DE ÓRDENES
+model order_items {
+  id          String @id @default(uuid())
+  order_id    String
+  product_id  String
+  quantity    Decimal
+  unit_price  Decimal
+  discount_amount Decimal @default(0)
+  tax_amount  Decimal
+  subtotal    Decimal
+  total       Decimal
+  notes       String?
+  status      String @default("pending")
+  prepared_by String?
+  prepared_at DateTime?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now())
+
+  // Relaciones
+  order   orders  @relation(fields: [order_id], references: [id])
+  product products @relation(fields: [product_id], references: [id])
+  prepared_by_user users? @relation("PreparedBy", fields: [prepared_by], references: [id])
+}
+
+// 17. MÉTODOS DE PAGO
+model payment_methods {
+  id          String @id @default(uuid())
+  name        String @unique
+  display_name String
+  icon        String?
+  is_active   Boolean @default(true)
+  requires_reference Boolean @default(false)
+  created_at  DateTime @default(now())
+
+  // Relaciones
+  payments payments[]
+}
+
+// 18. PAGOS
+model payments {
+  id               String @id @default(uuid())
+  order_id         String
+  payment_method_id String
+  amount           Decimal
+  received_amount  Decimal?
+  change_amount    Decimal @default(0)
+  reference_number  String?
+  status           String  @default("completed")
+  processed_by     String?
+  processed_at     DateTime @default(now())
+  notes            String?
+  created_at       DateTime @default(now())
+  updated_at       DateTime @default(now())
+
+  // Relaciones
+  order          orders  @relation(fields: [order_id], references: [id])
+  payment_method payment_methods @relation(fields: [payment_method_id], references: [id])
+  processed_by_user users? @relation(fields: [processed_by], references: [id])
+}
+
+// 19. CONFIGURACIÓN POR SUCURSAL
+model branch_settings {
+  id        String   @id @default(uuid())
+  branch_id String   @unique
+  currency  String   @default("MXN")
+  timezone  String   @default("America/Mexico_City")
+  order_prefix String?
+  next_order_number Int @default(1)
+  print_logo Boolean @default(true)
+  print_address Boolean @default(true)
+  footer_text String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  // Relaciones
+  branch    branches @relation(fields: [branch_id], references: [id])
+}
