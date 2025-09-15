@@ -1,12 +1,5 @@
 // src/modules/restaurants/dto/create-restaurant.dto.ts
-import {
-  IsOptional,
-  IsString,
-  IsBoolean,
-  IsUUID,
-  IsEmail,
-  IsDateString,
-} from 'class-validator';
+import { IsOptional, IsString, IsBoolean, IsUUID, IsEmail, IsDateString } from 'class-validator';
 
 export class CreateRestaurantDto {
   @IsString()

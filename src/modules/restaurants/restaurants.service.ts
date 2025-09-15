@@ -30,9 +30,7 @@ export class RestaurantsService {
       where: { id: typeId },
     });
     if (!typeExists) {
-      throw new NotFoundException(
-        `Restaurant type with id ${typeId} not found`,
-      );
+      throw new NotFoundException(`Restaurant type with id not found`);
     }
 
     const restaurants = await this.prisma.restaurants.findMany({
@@ -40,9 +38,7 @@ export class RestaurantsService {
     });
 
     if (!restaurants.length) {
-      throw new NotFoundException(
-        `No restaurants found for restaurant type id ${typeId}`,
-      );
+      throw new NotFoundException(`No restaurants found for restaurant type id ${typeId}`);
     }
     return restaurants;
   }
@@ -60,9 +56,7 @@ export class RestaurantsService {
         where: { id: dto.restaurant_type_id },
       });
       if (!exists) {
-        throw new BadRequestException(
-          'restaurant_type_id no corresponde a un tipo existente',
-        );
+        throw new BadRequestException('restaurant_type_id no corresponde a un tipo existente');
       }
     }
 
