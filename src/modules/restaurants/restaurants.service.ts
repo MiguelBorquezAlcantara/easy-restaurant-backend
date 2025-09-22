@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
+import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 @Injectable()
@@ -79,4 +80,39 @@ export class RestaurantsService {
       },
     });
   }
+
+  async update(id: string, dto: UpdateRestaurantDto) {
+    await this.ensureExists(id);
+  
+    if (dto.restaurant_type_id) {
+      const exists = await this.prisma.restaurant_types.findUnique({
+        where: { id: dto.restaurant_type_id },
+      });
+      if (!exists) {
+        throw new BadRequestException('restaurant_type_id no corresponde a un tipo existente');
+      }
+    }
+  
+    return this.prisma.restaurants.update({
+      where: { id },
+      data: {
+        ...(dto.code ? { code: dto.code } : {}),
+        ...(dto.name ? { name: dto.name } : {}),
+        ...(dto.legal_name ? { legal_name: dto.legal_name } : {}),
+        ...(dto.tax_id ? { tax_id: dto.tax_id } : {}),
+        ...(dto.email ? { email: dto.email } : {}),
+        ...(dto.phone ? { phone: dto.phone } : {}),
+        ...(dto.logo_url ? { logo_url: dto.logo_url } : {}),
+        ...(dto.is_active !== undefined ? { is_active: dto.is_active } : {}),
+        ...(dto.subscription_ends_at
+          ? { subscription_ends_at: new Date(dto.subscription_ends_at) }
+          : {}),
+        ...(dto.restaurant_type_id
+          ? { restaurant_type: { connect: { id: dto.restaurant_type_id } } }
+          : {}),
+      },
+    });
+  }
+
+
 }
